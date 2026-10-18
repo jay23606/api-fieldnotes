@@ -94,7 +94,7 @@ async function mergeLiveDemoCatalog() {
       const targetName = demoAliases[normalizedName(demo.name)] || demo.name;
       let entry = state.entries.find((item) => normalizedName(item.API) === normalizedName(targetName));
       if (!entry) {
-        entry = { API: demo.name, Description: "No-key sample request curated for live API exploration.", Auth: "", Cors: "yes", Category: demoCategoryAliases[demo.category] || demo.category || "Open Data", Link: demo.docs_url || url.href, slug: slug(`demo-${demo.id}`), quota: null, catalogSupplement: true };
+        entry = { API: demo.name, Description: "No-key sample request curated for live API exploration.", Auth: "", Cors: demo.cors_verified === true ? "yes" : "unknown", Category: demoCategoryAliases[demo.category] || demo.category || "Open Data", Link: demo.docs_url || url.href, slug: slug(`demo-${demo.id}`), quota: null, catalogSupplement: true };
         state.entries.push(entry);
       }
       if (!noAuth(entry.Auth)) continue;
