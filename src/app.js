@@ -20,7 +20,7 @@ const liveExampleNames = new Set(Object.keys(EXAMPLES));
 let supabaseConfig = { supabaseUrl: "", supabaseAnonKey: "" };
 try { const module = await import("../config.js"); supabaseConfig = { ...supabaseConfig, ...module.config }; } catch { /* Local config is optional. */ }
 
-const state = { entries: [], categories: [], filtered: [], visible: PAGE_SIZE, selectedCategory: "", preset: "", session: null, credentials: [], client: null, online: true };
+const state = { entries: [], categories: [], filtered: [], visible: PAGE_SIZE, selectedCategory: "", preset: "", session: null, credentials: [], client: null, online: true, demoCatalogDate: "", demoSource: "" };
 const el = (id) => document.getElementById(id);
 const apiGrid = el("api-grid");
 const apiDialog = el("api-dialog");
@@ -41,6 +41,7 @@ async function loadCatalog() {
     const [categories, resources] = await Promise.all([categoriesRes.json(), resourcesRes.json()]);
     state.categories = categories.entries || [];
     state.entries = (resources.entries || []).map((item) => ({ ...item, slug: slug(item.API), quota: null }));
+    await mergeLiveDemoCatalog();
     state.online = true;
     sessionStorage.setItem("af-catalog-cache", JSON.stringify({ savedAt: Date.now(), categories: state.categories, entries: state.entries }));
   } catch (error) {
@@ -59,13 +60,48 @@ async function loadCatalog() {
   }
   renderCategories();
   await loadQuotaNotes();
-  const liveCount = state.entries.filter((entry) => noAuth(entry.Auth) && liveExampleNames.has(entry.API)).length;
+  const liveCount = state.entries.filter((entry) => noAuth(entry.Auth) && getExamples(entry).length > 0).length;
   el("live-demo-count").textContent = `(${liveCount})`;
   el("result-count").textContent = `${state.entries.length.toLocaleString()} APIs`;
   el("category-count").textContent = state.categories.length;
   el("catalog-updated").textContent = state.online ? `Catalog fetched just now · ${new Date().toLocaleDateString()}` : "Showing saved catalog · offline";
   populateCategories();
   applyFilters();
+}
+
+function normalizedName(value) { return String(value || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, ""); }
+const demoAliases = {
+  artinstitutechicago: "Art Institute of Chicago", dogceo: "Dog Pics", randomuser: "RandomUser",
+  opentriviadb: "Open Trivia", openlibrarysearch: "Open Library", nominatimosm: "Nominatim",
+  openmeteoairquality: "Open-Meteo", openmeteomarine: "Open-Meteo", openmeteoflood: "Open-Meteo",
+  openmeteohistorical: "Open-Meteo", openmeteoclimate: "Open-Meteo", openmeteoensemble: "Open-Meteo",
+  openmeteogeocoding: "Open-Meteo", opentriviacategories: "Open Trivia", cocktaildbcategories: "TheCocktailDB",
+  cocktaildbsearch: "TheCocktailDB", freedictionary: "Free Dictionary", usgsearthquakes: "USGS",
+};
+const demoCategoryAliases = { Art: "Art & Design", Books: "Books", Calendar: "Calendar", Dev: "Development", Food: "Food & Drink", Games: "Games & Comics", Geo: "Geocoding", Language: "Dictionaries", Literature: "Books", Science: "Science & Math", Trivia: "Entertainment", Weather: "Weather", Animals: "Animals", Fun: "Personality", Music: "Music", Health: "Health", Finance: "Currency Exchange", Images: "Photography", Network: "Development", Social: "Personality" };
+
+async function mergeLiveDemoCatalog() {
+  try {
+    const response = await fetch("./data/keyless-examples.json");
+    if (!response.ok) return;
+    const source = await response.json();
+    state.demoCatalogDate = source.generated || "";
+    state.demoSource = source.source || "";
+    for (const demo of source.entries || []) {
+      let url;
+      try { url = new URL(demo.test_url); } catch { continue; }
+      if (url.protocol !== "https:") continue;
+      const targetName = demoAliases[normalizedName(demo.name)] || demo.name;
+      let entry = state.entries.find((item) => normalizedName(item.API) === normalizedName(targetName));
+      if (!entry) {
+        entry = { API: demo.name, Description: "No-key sample request curated for live API exploration.", Auth: "", Cors: "yes", Category: demoCategoryAliases[demo.category] || demo.category || "Open Data", Link: demo.docs_url, slug: slug(`demo-${demo.id}`), quota: null, catalogSupplement: true };
+        state.entries.push(entry);
+      }
+      if (!noAuth(entry.Auth)) continue;
+      entry.liveExamples ||= [];
+      if (!entry.liveExamples.some((sample) => sample.url === url.href)) entry.liveExamples.push({ title: demo.name, url: url.href, note: "A safe, read-only sample response. Open the provider docs to explore other endpoints and inputs.", docs: demo.docs_url, checkedAt: demo.last_checked, responseMs: demo.response_ms, source: state.demoSource });
+    }
+  } catch { /* Curated live examples are an optional enhancement. */ }
 }
 
 async function loadQuotaNotes() {
@@ -75,6 +111,13 @@ async function loadQuotaNotes() {
   if (error || !data) return;
   const notes = new Map(data.map((note) => [note.provider_slug, note]));
   state.entries = state.entries.map((entry) => ({ ...entry, quota: notes.get(entry.slug) ?? null }));
+}
+
+function getExamples(entry) {
+  const examples = [...(entry.liveExamples || [])];
+  const legacy = EXAMPLES[entry.API];
+  if (legacy && !examples.some((sample) => sample.url === legacy.url)) examples.push({ title: "Curated sample", ...legacy });
+  return examples;
 }
 
 function populateCategories() {
@@ -102,7 +145,7 @@ function applyFilters() {
     const matchQuery = !query || [entry.API, entry.Description, entry.Category].some((field) => String(field || "").toLowerCase().includes(query));
     const matchAuth = !auth || (auth === "No" ? noAuth(entry.Auth) : String(entry.Auth).toLowerCase() === String(auth).toLowerCase());
     const matchCategory = !category || entry.Category === category;
-    const matchPreset = state.preset === "noauth" ? noAuth(entry.Auth) : state.preset === "live" ? noAuth(entry.Auth) && liveExampleNames.has(entry.API) : state.preset === "cors" ? corsValue(entry.Cors) === "yes" : state.preset === "quota" ? Boolean(entry.quota) : true;
+    const matchPreset = state.preset === "noauth" ? noAuth(entry.Auth) : state.preset === "live" ? noAuth(entry.Auth) && getExamples(entry).length > 0 : state.preset === "cors" ? corsValue(entry.Cors) === "yes" : state.preset === "quota" ? Boolean(entry.quota) : true;
     return matchQuery && matchAuth && matchCategory && matchPreset;
   });
   if (sort === "category") entries.sort((a,b) => a.Category.localeCompare(b.Category) || a.API.localeCompare(b.API));
@@ -113,7 +156,7 @@ function applyFilters() {
 }
 function renderCards() {
   const rows = state.filtered.slice(0, state.visible);
-  apiGrid.innerHTML = rows.map((entry) => { const cors = corsValue(entry.Cors); const hasLive = noAuth(entry.Auth) && liveExampleNames.has(entry.API); const access = hasLive ? "NO KEY · LIVE" : authLabel(entry.Auth); return `<article class="api-card" tabindex="0" role="button" aria-label="Explore ${esc(entry.API)}" data-slug="${esc(entry.slug)}"><div class="card-top"><span class="category-tag">${esc(entry.Category || "Uncategorized")}</span><span class="auth-tag ${noAuth(entry.Auth) ? "no-key" : authClass(entry.Auth)}">${access}</span></div><h3>${esc(entry.API)}</h3><p>${esc(entry.Description || "No description provided.")}</p><div class="card-bottom"><span class="cors-indicator ${cors === "no" ? "no" : ""}"><i></i>${cors === "yes" ? "BROWSER READY" : cors === "no" ? "CORS BLOCKED" : "CORS UNKNOWN"}</span><span class="card-arrow">↗</span></div></article>`; }).join("");
+  apiGrid.innerHTML = rows.map((entry) => { const cors = corsValue(entry.Cors); const hasLive = noAuth(entry.Auth) && getExamples(entry).length > 0; const access = hasLive ? "NO KEY · LIVE" : authLabel(entry.Auth); return `<article class="api-card" tabindex="0" role="button" aria-label="Explore ${esc(entry.API)}" data-slug="${esc(entry.slug)}"><div class="card-top"><span class="category-tag">${esc(entry.Category || "Uncategorized")}</span><span class="auth-tag ${noAuth(entry.Auth) ? "no-key" : authClass(entry.Auth)}">${access}</span></div><h3>${esc(entry.API)}</h3><p>${esc(entry.Description || "No description provided.")}</p><div class="card-bottom"><span class="cors-indicator ${cors === "no" ? "no" : ""}"><i></i>${cors === "yes" ? "BROWSER READY" : cors === "no" ? "CORS BLOCKED" : "CORS UNKNOWN"}</span><span class="card-arrow">↗</span></div></article>`; }).join("");
   apiGrid.querySelectorAll(".api-card").forEach((card) => { const open = () => openApi(state.entries.find((entry) => entry.slug === card.dataset.slug)); card.addEventListener("click", open); card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }); });
   el("result-count").textContent = `${state.filtered.length.toLocaleString()} APIs`;
   el("results-label").textContent = state.filtered.length ? `Showing ${rows.length} of ${state.filtered.length.toLocaleString()} APIs` : "No APIs match these filters";
@@ -123,24 +166,41 @@ function renderCards() {
 
 function openApi(entry) {
   if (!entry) return;
-  const example = EXAMPLES[entry.API];
+  const examples = getExamples(entry);
+  let selectedExample = examples[0];
   const quota = entry.quota;
   const quotaMarkup = quota ? `<div class="quota-panel"><b>REQUEST LIMITS · ${esc(quota.confidence.toUpperCase())}${quota.checked_at ? ` · CHECKED ${esc(quota.checked_at)}` : ""}</b><p>${esc(quota.quota_summary)}${quota.scope ? ` · ${esc(quota.scope)}` : ""}${quota.source_url ? ` · <a href="${safeUrl(quota.source_url)}" target="_blank" rel="noreferrer">Source ↗</a>` : ""}</p></div>` : `<div class="quota-panel"><b>REQUEST LIMITS · NOT VERIFIED</b><p>The source catalog does not include quotas. Check the provider’s plan and rate-limit documentation before building against it.</p></div>`;
   const anonymous = noAuth(entry.Auth); const corsBlocked = corsValue(entry.Cors) === "no";
-  el("api-detail").innerHTML = `<div class="detail-content"><div class="detail-eyebrow">${esc(entry.Category || "API")} · CATALOG ENTRY</div><h2>${esc(entry.API)}</h2><p class="detail-desc">${esc(entry.Description || "No description provided by the source catalog.")}</p><div class="detail-badges"><span>${authLabel(entry.Auth)}</span><span>CORS: ${esc(entry.Cors || "Unknown")}</span><span>QUOTA: ${quota ? esc(quota.confidence.toUpperCase()) : "UNKNOWN"}</span></div><div class="detail-links"><a href="${safeUrl(entry.Link)}" target="_blank" rel="noreferrer">Provider documentation ↗</a><a href="https://github.com/marcelscruz/public-apis" target="_blank" rel="noreferrer">Catalog source ↗</a></div>${quotaMarkup}${example && anonymous ? `<div class="try-panel"><div class="try-head"><strong>TRY A LIVE EXAMPLE</strong><button id="run-example">Run request ↗</button></div><div class="try-body"><p>${esc(example.note)}</p><div class="endpoint-line"><span class="method">GET</span><span>${esc(example.url)}</span></div><div id="response-out"></div></div></div>` : `<div class="quota-panel"><b>${anonymous ? "EXPLORATION NOTE" : "CONNECT TO EXPLORE"}</b><p>${anonymous ? (corsBlocked ? "This provider blocks browser requests. We’ll add a server-side adapter after Supabase is configured; meanwhile, open the provider documentation." : "A live adapter for this API is not included yet. Check the provider docs for endpoints and sample data.") : "This API requires credentials or OAuth. Add your own provider key after configuring Supabase. The app does not generate third-party keys."}</p></div>`}</div>`;
+  const picker = examples.length > 1 ? `<label class="sort-control">SAMPLE <select id="example-select">${examples.map((sample, index) => `<option value="${index}">${esc(sample.title || `Sample ${index + 1}`)}</option>`).join("")}</select></label>` : "";
+  const sourceNote = (sample) => sample?.checkedAt ? `<div class="response-meta">Browser CORS check by <a href="${safeUrl(sample.source)}" target="_blank" rel="noreferrer">keyless-apis</a> · ${new Date(sample.checkedAt).toLocaleDateString()}. <a href="${safeUrl(sample.docs)}" target="_blank" rel="noreferrer">Sample docs ↗</a> · Run request to check it again.</div>` : "";
+  el("api-detail").innerHTML = `<div class="detail-content"><div class="detail-eyebrow">${esc(entry.Category || "API")} · ${entry.catalogSupplement ? "LIVE SAMPLE INDEX" : "CATALOG ENTRY"}</div><h2>${esc(entry.API)}</h2><p class="detail-desc">${esc(entry.Description || "No description provided by the source catalog.")}</p><div class="detail-badges"><span>${authLabel(entry.Auth)}</span><span>CORS: ${esc(entry.Cors || "Unknown")}</span><span>QUOTA: ${quota ? esc(quota.confidence.toUpperCase()) : "UNKNOWN"}</span></div><div class="detail-links"><a href="${safeUrl(entry.Link)}" target="_blank" rel="noreferrer">Provider documentation ↗</a><a href="https://github.com/marcelscruz/public-apis" target="_blank" rel="noreferrer">Catalog source ↗</a></div>${quotaMarkup}${selectedExample && anonymous ? `<div class="try-panel"><div class="try-head"><strong>TRY A LIVE EXAMPLE</strong>${picker}<button id="run-example">Run request ↗</button></div><div class="try-body"><p id="example-note">${esc(selectedExample.note)}</p><div class="endpoint-line"><span class="method">GET</span><span id="example-url">${esc(selectedExample.url)}</span></div><div id="example-source-note">${sourceNote(selectedExample)}</div><div id="response-out"></div></div></div>` : `<div class="quota-panel"><b>${anonymous ? "EXPLORATION NOTE" : "CONNECT TO EXPLORE"}</b><p>${anonymous ? (corsBlocked ? "This provider blocks browser requests. We’ll add a server-side adapter after Supabase is configured; meanwhile, open the provider documentation." : "A live adapter for this API is not included yet. Check the provider docs for endpoints and sample data.") : "This API requires credentials or OAuth. Add your own provider key after configuring Supabase. The app does not generate third-party keys."}</p></div>`}</div>`;
   apiDialog.showModal();
-  document.getElementById("run-example")?.addEventListener("click", (event) => runExample(entry, event.currentTarget));
+  document.getElementById("run-example")?.addEventListener("click", (event) => runExample(entry, event.currentTarget, selectedExample));
+  document.getElementById("example-select")?.addEventListener("change", (event) => {
+    selectedExample = examples[Number(event.currentTarget.value)];
+    document.getElementById("example-note").textContent = selectedExample.note;
+    document.getElementById("example-url").textContent = selectedExample.url;
+    document.getElementById("example-source-note").innerHTML = sourceNote(selectedExample);
+    document.getElementById("response-out").innerHTML = "";
+  });
 }
 function safeUrl(value = "") { try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) ? esc(url.href) : "#"; } catch { return "#"; } }
-async function runExample(entry, button) {
-  const example = EXAMPLES[entry.API]; const output = document.getElementById("response-out");
+async function runExample(entry, button, example = getExamples(entry)[0]) {
+  const output = document.getElementById("response-out");
   button.disabled = true; button.textContent = "Requesting…"; output.innerHTML = `<div class="response-meta">CONTACTING PROVIDER…</div>`;
   const started = performance.now();
   try {
     const response = await fetch(example.url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(12000) });
-    const text = await response.text();
-    let formatted; try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch { formatted = text; }
-    output.innerHTML = `<div class="response-box">${esc(formatted.slice(0, 18000))}</div><div class="response-meta">HTTP ${response.status} · ${Math.round(performance.now()-started)} ms · observed just now · ${response.ok ? "SUCCESS" : "PROVIDER ERROR"}</div>`;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.startsWith("image/")) {
+      if (runExample.objectUrl) URL.revokeObjectURL(runExample.objectUrl);
+      runExample.objectUrl = URL.createObjectURL(await response.blob());
+      output.innerHTML = `<div class="response-box"><img alt="Live API response image" src="${runExample.objectUrl}" style="display:block;max-width:100%;max-height:340px;margin:auto;border-radius:3px" /></div><div class="response-meta">HTTP ${response.status} · ${Math.round(performance.now()-started)} ms · ${esc(contentType)} · ${response.ok ? "SUCCESS" : "PROVIDER ERROR"}</div>`;
+    } else {
+      const text = await response.text();
+      let formatted; try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch { formatted = text; }
+      output.innerHTML = `<div class="response-box">${esc(formatted.slice(0, 18000))}</div><div class="response-meta">HTTP ${response.status} · ${Math.round(performance.now()-started)} ms · ${esc(contentType || "response") } · observed just now · ${response.ok ? "SUCCESS" : "PROVIDER ERROR"}</div>`;
+    }
   } catch (error) {
     const cors = error instanceof TypeError;
     output.innerHTML = `<div class="response-box">${cors ? "The browser could not read this provider response. This is commonly caused by CORS; it does not necessarily mean the API is down." : esc(error.message)}</div><div class="response-meta">REQUEST FAILED · No quota could be observed</div>`;

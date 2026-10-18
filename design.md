@@ -11,7 +11,7 @@ The name suggests a practical place to inspect APIs and record what they return 
 
 API Fieldnotes is a personal, browser-based API discovery playground. It helps a developer browse a large catalog, inspect what an API actually returns, understand its authentication and access limits, and decide whether it fits a project.
 
-The initial catalog comes from [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis), which publishes generated category and resource JSON. The catalog supplies API name, category, description, auth type, CORS indicator, and provider link. It does not supply reliable quota data or a universal key-provisioning mechanism.
+The initial catalog comes from [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis), which publishes generated category and resource JSON. The catalog supplies API name, category, description, auth type, CORS indicator, and provider link. It does not supply reliable quota data or a universal key-provisioning mechanism. A separate, attributed snapshot from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis) supplements it with HTTPS sample request URLs that the source says it periodically checks for browser CORS access.
 
 ## Audience and primary task
 
@@ -47,7 +47,7 @@ For one developer evaluating APIs. The central task is:
 - Identity: name, category, catalog description, provider documentation link, catalog source link, and last catalog refresh.
 - Access summary: auth method, CORS status from catalog, known quotas, pricing notes, and citations/checked date.
 - Request composer for supported adapters: method, endpoint/path, query parameters, headers, and example input. Default to a read-only sample request; block arbitrary destinations and unsafe methods in the first release.
-- “Try example” button for a provider-reviewed sample. Show a note when the app uses a curated fixture instead of a live call.
+- “Try example” button for a curated, read-only live sample. Where a provider has several sample endpoints, let the user select which request to try. Show the independent sample-index check date and make clear that each click performs a fresh provider request.
 - Response panel with formatted JSON/text, status, elapsed time, response headers where available, and copy/download controls.
 - Data guide: inferred field paths and types from the returned sample, clearly marked as observed from this response rather than a provider schema.
 - Useful follow-up links to official docs, terms, and key registration.
