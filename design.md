@@ -38,8 +38,8 @@ For one developer evaluating APIs. The central task is:
 
 - Search field with instant filtering.
 - Category navigation and result count.
-- Filters: auth (`None`, `API key`, `OAuth`, `Other`), CORS (`Yes`, `No`, `Unknown`), quota data available, and recently tested.
-- Result cards show name, category, concise description, auth badge, CORS badge, and quota confidence/source status.
+- Filters: auth (`None`, `API key`, `OAuth`, `Other`), CORS (`Yes`, `No`, `Unknown`), a live-demo-only shortcut, quota data available, and recently tested. “No key needed” means the catalog says the provider does not require auth; it does not guarantee a browser-ready example.
+- Result cards show name, category, concise description, auth/live-demo badge, CORS badge, and quota confidence/source status.
 - Sort by name, category, auth simplicity, or recent activity.
 
 ### API detail / explorer

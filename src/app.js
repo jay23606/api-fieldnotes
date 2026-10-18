@@ -15,6 +15,7 @@ const EXAMPLES = {
   "Dictionary": { url: "https://api.dictionaryapi.dev/api/v2/entries/en/serendipity", note: "Definitions, phonetics, and examples for one English word." },
   "Open-Meteo": { url: "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.006&current=temperature_2m,relative_humidity_2m,wind_speed_10m", note: "Current weather readings for New York (coordinates are in the URL)." },
 };
+const liveExampleNames = new Set(Object.keys(EXAMPLES));
 
 let supabaseConfig = { supabaseUrl: "", supabaseAnonKey: "" };
 try { const module = await import("../config.js"); supabaseConfig = { ...supabaseConfig, ...module.config }; } catch { /* Local config is optional. */ }
@@ -58,6 +59,8 @@ async function loadCatalog() {
   }
   renderCategories();
   await loadQuotaNotes();
+  const liveCount = state.entries.filter((entry) => noAuth(entry.Auth) && liveExampleNames.has(entry.API)).length;
+  el("live-demo-count").textContent = `(${liveCount})`;
   el("result-count").textContent = `${state.entries.length.toLocaleString()} APIs`;
   el("category-count").textContent = state.categories.length;
   el("catalog-updated").textContent = state.online ? `Catalog fetched just now · ${new Date().toLocaleDateString()}` : "Showing saved catalog · offline";
@@ -99,7 +102,7 @@ function applyFilters() {
     const matchQuery = !query || [entry.API, entry.Description, entry.Category].some((field) => String(field || "").toLowerCase().includes(query));
     const matchAuth = !auth || (auth === "No" ? noAuth(entry.Auth) : String(entry.Auth).toLowerCase() === String(auth).toLowerCase());
     const matchCategory = !category || entry.Category === category;
-    const matchPreset = state.preset === "noauth" ? noAuth(entry.Auth) : state.preset === "cors" ? corsValue(entry.Cors) === "yes" : state.preset === "quota" ? Boolean(entry.quota) : true;
+    const matchPreset = state.preset === "noauth" ? noAuth(entry.Auth) : state.preset === "live" ? noAuth(entry.Auth) && liveExampleNames.has(entry.API) : state.preset === "cors" ? corsValue(entry.Cors) === "yes" : state.preset === "quota" ? Boolean(entry.quota) : true;
     return matchQuery && matchAuth && matchCategory && matchPreset;
   });
   if (sort === "category") entries.sort((a,b) => a.Category.localeCompare(b.Category) || a.API.localeCompare(b.API));
@@ -110,7 +113,7 @@ function applyFilters() {
 }
 function renderCards() {
   const rows = state.filtered.slice(0, state.visible);
-  apiGrid.innerHTML = rows.map((entry) => { const cors = corsValue(entry.Cors); return `<article class="api-card" tabindex="0" role="button" aria-label="Explore ${esc(entry.API)}" data-slug="${esc(entry.slug)}"><div class="card-top"><span class="category-tag">${esc(entry.Category || "Uncategorized")}</span><span class="auth-tag ${authClass(entry.Auth)}">${authLabel(entry.Auth)}</span></div><h3>${esc(entry.API)}</h3><p>${esc(entry.Description || "No description provided.")}</p><div class="card-bottom"><span class="cors-indicator ${cors === "no" ? "no" : ""}"><i></i>${cors === "yes" ? "BROWSER READY" : cors === "no" ? "CORS BLOCKED" : "CORS UNKNOWN"}</span><span class="card-arrow">↗</span></div></article>`; }).join("");
+  apiGrid.innerHTML = rows.map((entry) => { const cors = corsValue(entry.Cors); const hasLive = noAuth(entry.Auth) && liveExampleNames.has(entry.API); const access = hasLive ? "NO KEY · LIVE" : authLabel(entry.Auth); return `<article class="api-card" tabindex="0" role="button" aria-label="Explore ${esc(entry.API)}" data-slug="${esc(entry.slug)}"><div class="card-top"><span class="category-tag">${esc(entry.Category || "Uncategorized")}</span><span class="auth-tag ${noAuth(entry.Auth) ? "no-key" : authClass(entry.Auth)}">${access}</span></div><h3>${esc(entry.API)}</h3><p>${esc(entry.Description || "No description provided.")}</p><div class="card-bottom"><span class="cors-indicator ${cors === "no" ? "no" : ""}"><i></i>${cors === "yes" ? "BROWSER READY" : cors === "no" ? "CORS BLOCKED" : "CORS UNKNOWN"}</span><span class="card-arrow">↗</span></div></article>`; }).join("");
   apiGrid.querySelectorAll(".api-card").forEach((card) => { const open = () => openApi(state.entries.find((entry) => entry.slug === card.dataset.slug)); card.addEventListener("click", open); card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }); });
   el("result-count").textContent = `${state.filtered.length.toLocaleString()} APIs`;
   el("results-label").textContent = state.filtered.length ? `Showing ${rows.length} of ${state.filtered.length.toLocaleString()} APIs` : "No APIs match these filters";
@@ -200,7 +203,7 @@ function wireUI() {
   el("load-more").addEventListener("click", () => { state.visible += PAGE_SIZE; renderCards(); });
   el("clear-filters").addEventListener("click", () => { el("search").value = ""; el("auth-filter").value = ""; el("category-filter").value = ""; state.selectedCategory = ""; state.preset = ""; document.querySelectorAll("[data-preset]").forEach((button) => button.classList.remove("active")); renderCategories(); applyFilters(); });
   el("all-categories").addEventListener("click", () => { el("category-filter").focus(); el("category-filter").click(); });
-  document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => { state.preset = state.preset === button.dataset.preset ? "" : button.dataset.preset; document.querySelectorAll("[data-preset]").forEach((item) => item.classList.toggle("active", item === button && Boolean(state.preset))); el("auth-filter").value = state.preset === "noauth" ? "No" : ""; applyFilters(); }));
+  document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => { state.preset = state.preset === button.dataset.preset ? "" : button.dataset.preset; document.querySelectorAll("[data-preset]").forEach((item) => item.classList.toggle("active", item === button && Boolean(state.preset))); el("auth-filter").value = state.preset === "noauth" || state.preset === "live" ? "No" : ""; applyFilters(); }));
   el("login-trigger").addEventListener("click", openAuth);
   document.addEventListener("keydown", (event) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); el("search").focus(); } });
 }
