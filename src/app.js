@@ -27,8 +27,10 @@ const authDialog = el("auth-dialog");
 
 function esc(value = "") { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 function slug(value = "") { return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 120) || "api"; }
-function authLabel(auth) { return auth === "No" || !auth ? "NO KEY" : auth === "apiKey" ? "API KEY" : auth === "OAuth" ? "OAUTH" : String(auth).toUpperCase(); }
-function authClass(auth) { return auth === "No" || !auth ? "no-key" : auth === "apiKey" ? "key" : auth === "OAuth" ? "oauth" : ""; }
+function noAuth(auth) { return !auth || String(auth).trim().toLowerCase() === "no"; }
+function corsValue(cors) { return String(cors || "unknown").trim().toLowerCase(); }
+function authLabel(auth) { return noAuth(auth) ? "NO KEY" : String(auth).toLowerCase() === "apikey" ? "API KEY" : String(auth).toLowerCase() === "oauth" ? "OAUTH" : String(auth).toUpperCase(); }
+function authClass(auth) { return noAuth(auth) ? "no-key" : String(auth).toLowerCase() === "apikey" ? "key" : String(auth).toLowerCase() === "oauth" ? "oauth" : ""; }
 function notify(message) { const toast = el("toast"); toast.textContent = message; toast.classList.add("visible"); clearTimeout(notify.timer); notify.timer = setTimeout(() => toast.classList.remove("visible"), 3300); }
 
 async function loadCatalog() {
@@ -95,20 +97,20 @@ function applyFilters() {
   const sort = el("sort-select").value;
   let entries = state.entries.filter((entry) => {
     const matchQuery = !query || [entry.API, entry.Description, entry.Category].some((field) => String(field || "").toLowerCase().includes(query));
-    const matchAuth = !auth || (auth === "No" ? entry.Auth === "No" || !entry.Auth : entry.Auth === auth);
+    const matchAuth = !auth || (auth === "No" ? noAuth(entry.Auth) : String(entry.Auth).toLowerCase() === String(auth).toLowerCase());
     const matchCategory = !category || entry.Category === category;
-    const matchPreset = state.preset === "noauth" ? entry.Auth === "No" || !entry.Auth : state.preset === "cors" ? entry.Cors === "Yes" : state.preset === "quota" ? Boolean(entry.quota) : true;
+    const matchPreset = state.preset === "noauth" ? noAuth(entry.Auth) : state.preset === "cors" ? corsValue(entry.Cors) === "yes" : state.preset === "quota" ? Boolean(entry.quota) : true;
     return matchQuery && matchAuth && matchCategory && matchPreset;
   });
   if (sort === "category") entries.sort((a,b) => a.Category.localeCompare(b.Category) || a.API.localeCompare(b.API));
-  else if (sort === "simple") entries.sort((a,b) => Number(b.Auth === "No") - Number(a.Auth === "No") || a.API.localeCompare(b.API));
+  else if (sort === "simple") entries.sort((a,b) => Number(noAuth(b.Auth)) - Number(noAuth(a.Auth)) || a.API.localeCompare(b.API));
   else entries.sort((a,b) => a.API.localeCompare(b.API));
   state.filtered = entries; state.visible = PAGE_SIZE;
   renderCards();
 }
 function renderCards() {
   const rows = state.filtered.slice(0, state.visible);
-  apiGrid.innerHTML = rows.map((entry) => `<article class="api-card" tabindex="0" role="button" aria-label="Explore ${esc(entry.API)}" data-slug="${esc(entry.slug)}"><div class="card-top"><span class="category-tag">${esc(entry.Category || "Uncategorized")}</span><span class="auth-tag ${authClass(entry.Auth)}">${authLabel(entry.Auth)}</span></div><h3>${esc(entry.API)}</h3><p>${esc(entry.Description || "No description provided.")}</p><div class="card-bottom"><span class="cors-indicator ${entry.Cors === "No" ? "no" : ""}"><i></i>${entry.Cors === "Yes" ? "BROWSER READY" : entry.Cors === "No" ? "CORS BLOCKED" : "CORS UNKNOWN"}</span><span class="card-arrow">↗</span></div></article>`).join("");
+  apiGrid.innerHTML = rows.map((entry) => { const cors = corsValue(entry.Cors); return `<article class="api-card" tabindex="0" role="button" aria-label="Explore ${esc(entry.API)}" data-slug="${esc(entry.slug)}"><div class="card-top"><span class="category-tag">${esc(entry.Category || "Uncategorized")}</span><span class="auth-tag ${authClass(entry.Auth)}">${authLabel(entry.Auth)}</span></div><h3>${esc(entry.API)}</h3><p>${esc(entry.Description || "No description provided.")}</p><div class="card-bottom"><span class="cors-indicator ${cors === "no" ? "no" : ""}"><i></i>${cors === "yes" ? "BROWSER READY" : cors === "no" ? "CORS BLOCKED" : "CORS UNKNOWN"}</span><span class="card-arrow">↗</span></div></article>`; }).join("");
   apiGrid.querySelectorAll(".api-card").forEach((card) => { const open = () => openApi(state.entries.find((entry) => entry.slug === card.dataset.slug)); card.addEventListener("click", open); card.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }); });
   el("result-count").textContent = `${state.filtered.length.toLocaleString()} APIs`;
   el("results-label").textContent = state.filtered.length ? `Showing ${rows.length} of ${state.filtered.length.toLocaleString()} APIs` : "No APIs match these filters";
@@ -121,7 +123,8 @@ function openApi(entry) {
   const example = EXAMPLES[entry.API];
   const quota = entry.quota;
   const quotaMarkup = quota ? `<div class="quota-panel"><b>REQUEST LIMITS · ${esc(quota.confidence.toUpperCase())}${quota.checked_at ? ` · CHECKED ${esc(quota.checked_at)}` : ""}</b><p>${esc(quota.quota_summary)}${quota.scope ? ` · ${esc(quota.scope)}` : ""}${quota.source_url ? ` · <a href="${safeUrl(quota.source_url)}" target="_blank" rel="noreferrer">Source ↗</a>` : ""}</p></div>` : `<div class="quota-panel"><b>REQUEST LIMITS · NOT VERIFIED</b><p>The source catalog does not include quotas. Check the provider’s plan and rate-limit documentation before building against it.</p></div>`;
-  el("api-detail").innerHTML = `<div class="detail-content"><div class="detail-eyebrow">${esc(entry.Category || "API")} · CATALOG ENTRY</div><h2>${esc(entry.API)}</h2><p class="detail-desc">${esc(entry.Description || "No description provided by the source catalog.")}</p><div class="detail-badges"><span>${authLabel(entry.Auth)}</span><span>CORS: ${esc(entry.Cors || "Unknown")}</span><span>QUOTA: ${quota ? esc(quota.confidence.toUpperCase()) : "UNKNOWN"}</span></div><div class="detail-links"><a href="${safeUrl(entry.Link)}" target="_blank" rel="noreferrer">Provider documentation ↗</a><a href="https://github.com/marcelscruz/public-apis" target="_blank" rel="noreferrer">Catalog source ↗</a></div>${quotaMarkup}${example && entry.Auth === "No" ? `<div class="try-panel"><div class="try-head"><strong>TRY A LIVE EXAMPLE</strong><button id="run-example">Run request ↗</button></div><div class="try-body"><p>${esc(example.note)}</p><div class="endpoint-line"><span class="method">GET</span><span>${esc(example.url)}</span></div><div id="response-out"></div></div></div>` : `<div class="quota-panel"><b>${entry.Auth === "No" ? "EXPLORATION NOTE" : "CONNECT TO EXPLORE"}</b><p>${entry.Auth === "No" ? (entry.Cors === "No" ? "This provider blocks browser requests. We’ll add a server-side adapter after Supabase is configured; meanwhile, open the provider documentation." : "A live adapter for this API is not included yet. Check the provider docs for endpoints and sample data.") : "This API requires credentials or OAuth. Add your own provider key after configuring Supabase. The app does not generate third-party keys."}</p></div>`}</div>`;
+  const anonymous = noAuth(entry.Auth); const corsBlocked = corsValue(entry.Cors) === "no";
+  el("api-detail").innerHTML = `<div class="detail-content"><div class="detail-eyebrow">${esc(entry.Category || "API")} · CATALOG ENTRY</div><h2>${esc(entry.API)}</h2><p class="detail-desc">${esc(entry.Description || "No description provided by the source catalog.")}</p><div class="detail-badges"><span>${authLabel(entry.Auth)}</span><span>CORS: ${esc(entry.Cors || "Unknown")}</span><span>QUOTA: ${quota ? esc(quota.confidence.toUpperCase()) : "UNKNOWN"}</span></div><div class="detail-links"><a href="${safeUrl(entry.Link)}" target="_blank" rel="noreferrer">Provider documentation ↗</a><a href="https://github.com/marcelscruz/public-apis" target="_blank" rel="noreferrer">Catalog source ↗</a></div>${quotaMarkup}${example && anonymous ? `<div class="try-panel"><div class="try-head"><strong>TRY A LIVE EXAMPLE</strong><button id="run-example">Run request ↗</button></div><div class="try-body"><p>${esc(example.note)}</p><div class="endpoint-line"><span class="method">GET</span><span>${esc(example.url)}</span></div><div id="response-out"></div></div></div>` : `<div class="quota-panel"><b>${anonymous ? "EXPLORATION NOTE" : "CONNECT TO EXPLORE"}</b><p>${anonymous ? (corsBlocked ? "This provider blocks browser requests. We’ll add a server-side adapter after Supabase is configured; meanwhile, open the provider documentation." : "A live adapter for this API is not included yet. Check the provider docs for endpoints and sample data.") : "This API requires credentials or OAuth. Add your own provider key after configuring Supabase. The app does not generate third-party keys."}</p></div>`}</div>`;
   apiDialog.showModal();
   document.getElementById("run-example")?.addEventListener("click", (event) => runExample(entry, event.currentTarget));
 }
