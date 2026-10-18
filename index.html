@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f5ef" />
+    <meta name="description" content="Browse public APIs, inspect example data, and understand access limits before building." />
+    <title>API Fieldnotes — Discover APIs by trying them</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./src/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="API Fieldnotes home">
+        <span class="brand-mark">af<span>↗</span></span>
+        <span>API <b>Fieldnotes</b></span>
+      </a>
+      <div class="topbar-right">
+        <span class="catalog-pulse"><i></i> Open catalog</span>
+        <button class="login-trigger" id="login-trigger"><span class="user-icon">↗</span><span id="login-label">Sign in</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span>FIELD GUIDE 01</span><span class="eyebrow-rule"></span><span>THE OPEN WEB</span></div>
+          <h1>Find your next<br /><em>building block.</em></h1>
+          <p class="hero-description">A field guide to public APIs. Browse what’s out there, try a live request, and see the data for yourself.</p>
+          <div class="hero-notes"><span><b>01</b> Browse the catalog</span><span><b>02</b> Try a sample</span><span><b>03</b> See what comes back</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div>
+          <div class="orbit-core"><span>API</span><b>↗</b></div>
+          <div class="orbit-node node-top"><span>GET</span></div><div class="orbit-node node-left"><span>{ }</span></div><div class="orbit-node node-right"><span>200</span></div>
+          <span class="art-caption">A little curiosity<br />goes a long way.</span>
+        </div>
+      </section>
+
+      <section class="catalog-section" aria-labelledby="catalog-heading">
+        <div class="section-head">
+          <div><div class="section-kicker">THE INDEX <span>—</span> <span id="result-count">Loading APIs…</span></div><h2 id="catalog-heading">What are you curious about?</h2></div>
+          <a class="source-link" href="https://github.com/marcelscruz/public-apis" target="_blank" rel="noreferrer">SOURCE CATALOG <span>↗</span></a>
+        </div>
+        <div class="catalog-controls">
+          <label class="search-box"><span class="search-icon">⌕</span><input id="search" type="search" placeholder="Search APIs, data, or ideas…" autocomplete="off" /><kbd>⌘ K</kbd></label>
+          <label class="select-wrap"><span class="visually-hidden">Filter by category</span><select id="category-filter"><option value="">All categories</option></select><span>⌄</span></label>
+          <label class="select-wrap"><span class="visually-hidden">Filter by access</span><select id="auth-filter"><option value="">Any access</option><option value="No">No key needed</option><option value="apiKey">API key</option><option value="OAuth">OAuth</option></select><span>⌄</span></label>
+        </div>
+        <div class="quick-filters"><span>GOOD PLACES TO START</span><button data-preset="noauth">No key needed <i>↗</i></button><button data-preset="cors">Works in browser <i>↗</i></button><button data-preset="quota">Quota info <i>↗</i></button></div>
+        <div class="catalog-layout">
+          <aside class="category-rail"><div class="rail-title">CATEGORIES <span id="category-count"></span></div><div id="category-list" class="category-list"><div class="loading-row">Gathering categories…</div></div><button class="all-categories" id="all-categories">View all categories <span>↗</span></button></aside>
+          <div class="results-area"><div class="results-toolbar"><span id="results-label">Loading the index</span><label class="sort-control">SORT BY <select id="sort-select"><option value="name">Name, A–Z</option><option value="category">Category</option><option value="simple">Easiest to try</option></select></label></div><div class="api-grid" id="api-grid"></div><div class="empty-state" id="empty-state" hidden><div class="empty-symbol">⌕</div><h3>No matching APIs</h3><p>Try another search or clear a filter.</p><button id="clear-filters">Clear filters</button></div><button class="load-more" id="load-more" hidden>Load more APIs <span>↓</span></button></div>
+        </div>
+        <div class="catalog-foot"><span>Catalog by <a href="https://github.com/marcelscruz/public-apis" target="_blank" rel="noreferrer">marcelscruz/public-apis</a></span><span id="catalog-updated">Catalog refreshes when you visit</span><span>Limits may vary by provider and plan</span></div>
+      </section>
+    </main>
+
+    <footer><span>API FIELDNOTES <b>© 2026</b></span><span>Made for curious builders <i>✳</i></span><a href="https://github.com/marcelscruz/public-apis/blob/main/LICENSE" target="_blank" rel="noreferrer">UPSTREAM LICENSE ↗</a></footer>
+
+    <dialog id="api-dialog" class="api-dialog"><form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form><div id="api-detail"></div></dialog>
+    <dialog id="auth-dialog" class="auth-dialog"><form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form><div id="auth-content"></div></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
