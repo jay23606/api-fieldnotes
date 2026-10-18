@@ -11,7 +11,7 @@ The name suggests a practical place to inspect APIs and record what they return 
 
 API Fieldnotes is a personal, browser-based API discovery playground. It helps a developer browse a large catalog, inspect what an API actually returns, understand its authentication and access limits, and decide whether it fits a project.
 
-The initial catalog comes from [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis), which publishes generated category and resource JSON. The catalog supplies API name, category, description, auth type, CORS indicator, and provider link. It does not supply reliable quota data or a universal key-provisioning mechanism. A separate, attributed snapshot from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis) supplements it with HTTPS sample request URLs that the source says it periodically checks for browser CORS access.
+The initial catalog comes from [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis), which publishes generated category and resource JSON. The catalog supplies API name, category, description, auth type, CORS indicator, and provider link. It does not supply reliable quota data or a universal key-provisioning mechanism. Attributed snapshots from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis) and [Manavarya09/public-apis-live](https://github.com/Manavarya09/public-apis-live) supplement it with HTTPS GET sample URLs and independent reachability/CORS/data checks.
 
 ## Audience and primary task
 

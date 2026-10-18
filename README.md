@@ -23,10 +23,10 @@ In the repository settings, enable Pages with **GitHub Actions** (or publish the
 
 ## Catalog and quotas
 
-The upstream catalog provides name, category, description, auth, CORS, and provider link. The app also includes a curated snapshot of keyless sample URLs from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis), which reports periodic endpoint and browser CORS checks. The snapshot is stored in `data/keyless-examples.json`; its source check date is shown in API details and is not a guarantee that an endpoint still works. The app makes a fresh request only after you click **Run request**. The imported sample index supplements the upstream list when a matching API entry is not present. All imported URLs are HTTPS GET examples.
+The upstream catalog provides name, category, description, auth, CORS, and provider link. The app also includes a curated snapshot of HTTPS sample URLs from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis) and [Manavarya09/public-apis-live](https://github.com/Manavarya09/public-apis-live). The first source reports endpoint and browser CORS checks; the second tracks reachability and whether some no-auth endpoints returned data. Their check dates appear in API details and are not a guarantee that an endpoint still works. The app makes a fresh request only after you click **Run request**. The imported sample index supplements the upstream list when a matching API entry is not present. All imported calls use HTTPS GET URLs.
 
 The source catalog does not provide verified rate limits. The app labels quota as unknown unless a provider-specific quota record is independently documented. No-key does not guarantee CORS, uptime, or a stable endpoint.
 
 ## Upstream attribution
 
-Catalog metadata comes from [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis). The live sample seed comes from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis) (its README identifies the project as MIT licensed). Preserve attribution and recheck both source licenses before distributing a built catalog snapshot.
+Catalog metadata comes from [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis). Live sample metadata comes from [tgeissel/keyless-apis](https://github.com/tgeissel/keyless-apis) and [Manavarya09/public-apis-live](https://github.com/Manavarya09/public-apis-live) (both identify as MIT licensed). Preserve attribution and recheck source licenses before distributing a built catalog snapshot.
